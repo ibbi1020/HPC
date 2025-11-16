@@ -167,7 +167,7 @@
   assert(imgout->nrows >= imgin->nrows);
 
   /* Parallelize over all pixels (j,i) */
-  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kernel)
+  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kernel.data[0:kernel.width])
   for (j = 0; j < nrows; j++) {
     for (i = 0; i < ncols; i++) {
       float sum = 0.0f;
@@ -214,7 +214,7 @@
   assert(imgout->nrows >= imgin->nrows);
 
   /* Parallelize over all pixels (j,i) */
-  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kernel)
+  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kernel.data[0:kernel.width])
   for (j = 0; j < nrows; j++) {
     for (i = 0; i < ncols; i++) {
       float sum = 0.0f;
