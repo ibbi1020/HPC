@@ -162,7 +162,7 @@
   int ncols  = imgin->ncols;
   int nrows  = imgin->nrows;
   int kwidth = kernel->width;           /* Capture as scalar */
-  float *kdata = kernel->data;          /* Capture pointer as scalar */
+  const float *kdata = kernel->data;    /* Capture pointer as scalar */
   int i, j, k;
 
   /* Kernel width must be odd */
@@ -211,7 +211,7 @@
   int ncols  = imgin->ncols;
   int nrows  = imgin->nrows;
   int kwidth = kernel->width;           /* Capture as scalar */
-  float *kdata = kernel->data;          /* Capture pointer as scalar */
+  const float *kdata = kernel->data;    /* Capture pointer as scalar */
   int i, j, k;
 
   /* Kernel width must be odd */
