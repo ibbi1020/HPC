@@ -32,10 +32,10 @@
  static float sigma_last = -10.0;
 
  /* Internal function to get kernel pointers (for pyramid use) */
- void _KLTGetGaussianKernels(ConvolutionKernel **gauss, ConvolutionKernel **gaussderiv)
+ void _KLTGetGaussianKernels(ConvolutionKernel *gauss, ConvolutionKernel *gaussderiv)
  {
-   *gauss = &gauss_kernel;
-   *gaussderiv = &gaussderiv_kernel;
+   *gauss = gauss_kernel;
+   *gaussderiv = gaussderiv_kernel;
  }
  
  /*********************************************************************

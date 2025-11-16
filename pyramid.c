@@ -97,7 +97,7 @@ void _KLTComputePyramid(
   int oldncols, oldnrows;
   int i, x, y;
   int src_x, src_y;
-  ConvolutionKernel *gauss_kernel, *gaussderiv_kernel;
+  ConvolutionKernel gauss_kernel, gaussderiv_kernel;
 
   if (subsampling != 2 && subsampling != 4 && 
       subsampling != 8 && subsampling != 16 && subsampling != 32)
@@ -111,7 +111,7 @@ void _KLTComputePyramid(
   int dummy_width;
   _KLTGetKernelWidths(sigma, &dummy_width, &dummy_width);
   
-  /* Get pointers to the Gaussian kernels */
+  /* Get copies of the Gaussian kernels */
   _KLTGetGaussianKernels(&gauss_kernel, &gaussderiv_kernel);
 
   /* Allocate a single temporary image at full resolution and reuse it */
@@ -124,7 +124,7 @@ void _KLTComputePyramid(
    */
   #pragma acc data \
       copyin(img->data[0:ncols*nrows], \
-             gauss_kernel->data[0:MAX_KERNEL_WIDTH]) \
+             gauss_kernel.data[0:MAX_KERNEL_WIDTH]) \
       create(tmpimg->data[0:ncols*nrows], \
              pyramid->img[0]->data[0:ncols*nrows])
   {
