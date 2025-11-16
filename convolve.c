@@ -18,24 +18,16 @@
  /* This is set by _KLTSetGlobalTrackingContext() before pyramid operations */
  KLT_TrackingContext _KLTGlobalTrackingContext = NULL;
  
- #define MAX_KERNEL_WIDTH 71
- 
- typedef struct
- {
-   int width;
-   float data[MAX_KERNEL_WIDTH];
- } ConvolutionKernel;
- 
  /* Kernels */
  static ConvolutionKernel gauss_kernel;
  static ConvolutionKernel gaussderiv_kernel;
  static float sigma_last = -10.0;
 
  /* Internal function to get kernel pointers (for pyramid use) */
- void _KLTGetGaussianKernels(ConvolutionKernel *gauss, ConvolutionKernel *gaussderiv)
+ void _KLTGetGaussianKernels(ConvolutionKernel **gauss, ConvolutionKernel **gaussderiv)
  {
-   *gauss = gauss_kernel;
-   *gaussderiv = gaussderiv_kernel;
+   *gauss = &gauss_kernel;
+   *gaussderiv = &gaussderiv_kernel;
  }
  
  /*********************************************************************
