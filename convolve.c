@@ -146,18 +146,20 @@
  
   static void _convolveImageHoriz(
     _KLT_FloatImage imgin,
-    ConvolutionKernel kernel,
+    const ConvolutionKernel *kernel,
     _KLT_FloatImage imgout)
 {
   float *indata  = imgin->data;
   float *outdata = imgout->data;
-  int radius = kernel.width / 2;
+  int radius = kernel->width / 2;
   int ncols  = imgin->ncols;
   int nrows  = imgin->nrows;
+  int kwidth = kernel->width;           /* Capture as scalar */
+  float *kdata = kernel->data;          /* Capture pointer as scalar */
   int i, j, k;
 
   /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
+  assert(kernel->width % 2 == 1);
 
   /* Must read from and write to different images */
   assert(imgin != imgout);
@@ -167,7 +169,7 @@
   assert(imgout->nrows >= imgin->nrows);
 
   /* Parallelize over all pixels (j,i) */
-  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kernel.data[0:kernel.width])
+  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kdata[0:kwidth])
   for (j = 0; j < nrows; j++) {
     for (i = 0; i < ncols; i++) {
       float sum = 0.0f;
@@ -177,8 +179,8 @@
       } else {
         /* Convolve middle columns with kernel */
         int base = j * ncols + (i - radius);
-        for (k = 0; k < kernel.width; k++) {
-          sum += indata[base + k] * kernel.data[kernel.width - 1 - k];
+        for (k = 0; k < kwidth; k++) {
+          sum += indata[base + k] * kdata[kwidth - 1 - k];
         }
         outdata[j * ncols + i] = sum;
       }
@@ -193,18 +195,20 @@
  
   static void _convolveImageVert(
     _KLT_FloatImage imgin,
-    ConvolutionKernel kernel,
+    const ConvolutionKernel *kernel,
     _KLT_FloatImage imgout)
 {
   float *indata  = imgin->data;
   float *outdata = imgout->data;
-  int radius = kernel.width / 2;
+  int radius = kernel->width / 2;
   int ncols  = imgin->ncols;
   int nrows  = imgin->nrows;
+  int kwidth = kernel->width;           /* Capture as scalar */
+  float *kdata = kernel->data;          /* Capture pointer as scalar */
   int i, j, k;
 
   /* Kernel width must be odd */
-  assert(kernel.width % 2 == 1);
+  assert(kernel->width % 2 == 1);
 
   /* Must read from and write to different images */
   assert(imgin != imgout);
@@ -214,7 +218,7 @@
   assert(imgout->nrows >= imgin->nrows);
 
   /* Parallelize over all pixels (j,i) */
-  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kernel.data[0:kernel.width])
+  #pragma acc parallel loop collapse(2) present(indata[0:ncols*nrows], outdata[0:ncols*nrows], kdata[0:kwidth])
   for (j = 0; j < nrows; j++) {
     for (i = 0; i < ncols; i++) {
       float sum = 0.0f;
@@ -224,8 +228,8 @@
       } else {
         /* Convolve middle rows with kernel */
         int base = (j - radius) * ncols + i;
-        for (k = 0; k < kernel.width; k++) {
-          sum += indata[base + k * ncols] * kernel.data[kernel.width - 1 - k];
+        for (k = 0; k < kwidth; k++) {
+          sum += indata[base + k * ncols] * kdata[kwidth - 1 - k];
         }
         outdata[j * ncols + i] = sum;
       }
@@ -241,8 +245,8 @@
 /* GPU-accelerated separable convolution with nested data region support */
 static void _convolveSeparate(
  _KLT_FloatImage imgin,
- ConvolutionKernel horiz_kernel,
- ConvolutionKernel vert_kernel,
+ const ConvolutionKernel *horiz_kernel,
+ const ConvolutionKernel *vert_kernel,
  _KLT_FloatImage imgout)
 {
 int ncols = imgin->ncols;
@@ -262,8 +266,8 @@ tmpimg = _KLTCreateFloatImage(ncols, nrows);
  * This allows function to work both standalone AND when called from parent data region
  */
 #pragma acc data present_or_copyin(imgin->data[0:npix], \
-                                     horiz_kernel.data[0:MAX_KERNEL_WIDTH], \
-                                     vert_kernel.data[0:MAX_KERNEL_WIDTH]) \
+                                     horiz_kernel->data[0:MAX_KERNEL_WIDTH], \
+                                     vert_kernel->data[0:MAX_KERNEL_WIDTH]) \
                  create(tmpimg->data[0:npix]) \
                  present_or_copyout(imgout->data[0:npix])
 {
@@ -317,8 +321,8 @@ void _KLTComputeGradients(
   #pragma acc data copyin(img->data[0:npix]) \
                    copyout(gradx->data[0:npix], grady->data[0:npix])
   {
-    _convolveSeparate(img, gaussderiv_kernel, gauss_kernel, gradx);
-    _convolveSeparate(img, gauss_kernel, gaussderiv_kernel, grady);
+    _convolveSeparate(img, &gaussderiv_kernel, &gauss_kernel, gradx);
+    _convolveSeparate(img, &gauss_kernel, &gaussderiv_kernel, grady);
   }
 }
  
@@ -349,6 +353,6 @@ void _KLTComputeSmoothedImage(
   #pragma acc data present_or_copyin(img->data[0:npix]) \
                    present_or_copyout(smooth->data[0:npix])
   {
-    _convolveSeparate(img, gauss_kernel, gauss_kernel, smooth);
+    _convolveSeparate(img, &gauss_kernel, &gauss_kernel, smooth);
   }
 }
