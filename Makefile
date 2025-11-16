@@ -14,10 +14,10 @@ GPU_ARCH = cc86
 # OpenACC GPU Flags for RTX 3060
 # -acc=gpu: Target GPU instead of multicore CPU
 # -gpu=$(GPU_ARCH): Specify compute capability
-# -gpu=managed: Use CUDA Unified Memory (easier debugging)
+# -gpu=mem:managed: Use CUDA Unified Memory (easier debugging)
 # -Minfo=accel: Show accelerator kernel information
 # -fast: Enable aggressive optimizations
-ACCFLAGS = -acc=gpu -gpu=$(GPU_ARCH),managed -Minfo=accel -fast
+ACCFLAGS = -acc=gpu -gpu=$(GPU_ARCH),mem:managed -Minfo=accel -fast
 
 # Compiler flags
 FLAG1 = -DNDEBUG
@@ -37,7 +37,7 @@ export LD_LIBRARY_PATH := $(WSL_CUDA_LIB):$(LD_LIBRARY_PATH)
 
 # Object files needed for example3
 OBJS = klt.o convolve.o klt_util.o pnmio.o error.o pyramid.o \
-       storeFeatures.o selectGoodFeatures.o trackFeatures.o
+       storeFeatures.o selectGoodFeatures.o trackFeatures.o writeFeatures.o
 
 ##############################################################
 # Build Targets
