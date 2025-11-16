@@ -8,6 +8,17 @@
 #include "klt.h"
 #include "klt_util.h"
 
+#define MAX_KERNEL_WIDTH 71
+
+typedef struct
+{
+  int width;
+  float data[MAX_KERNEL_WIDTH];
+} ConvolutionKernel;
+
+/* Get internal Gaussian kernel pointers (for pyramid optimization) */
+void _KLTGetGaussianKernels(ConvolutionKernel **gauss, ConvolutionKernel **gaussderiv);
+
 void _KLTToFloatImage(
   KLT_PixelType *img,
   int ncols, int nrows,

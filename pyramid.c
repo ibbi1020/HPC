@@ -97,6 +97,7 @@ void _KLTComputePyramid(
   int oldncols, oldnrows;
   int i, x, y;
   int src_x, src_y;
+  ConvolutionKernel *gauss_kernel, *gaussderiv_kernel;
 
   if (subsampling != 2 && subsampling != 4 && 
       subsampling != 8 && subsampling != 16 && subsampling != 32)
@@ -106,16 +107,24 @@ void _KLTComputePyramid(
   assert(pyramid->ncols[0] == img->ncols);
   assert(pyramid->nrows[0] == img->nrows);
 
+  /* Ensure Gaussian kernel is computed for this sigma */
+  int dummy_width;
+  _KLTGetKernelWidths(sigma, &dummy_width, &dummy_width);
+  
+  /* Get pointers to the Gaussian kernels */
+  _KLTGetGaussianKernels(&gauss_kernel, &gaussderiv_kernel);
+
   /* Allocate a single temporary image at full resolution and reuse it */
   tmpimg = _KLTCreateFloatImage(ncols, nrows);
 
   /* === SINGLE DATA REGION FOR ENTIRE PYRAMID CONSTRUCTION ===
    * This outer region keeps ALL pyramid data on GPU during construction.
-   * Inner regions use present() to assert data is already on GPU.
+   * Kernel data is transferred once and reused for all levels.
    * This eliminates all intermediate CPU<->GPU transfers!
    */
   #pragma acc data \
-      copyin(img->data[0:ncols*nrows]) \
+      copyin(img->data[0:ncols*nrows], \
+             gauss_kernel->data[0:MAX_KERNEL_WIDTH]) \
       create(tmpimg->data[0:ncols*nrows], \
              pyramid->img[0]->data[0:ncols*nrows])
   {

@@ -30,6 +30,13 @@
  static ConvolutionKernel gauss_kernel;
  static ConvolutionKernel gaussderiv_kernel;
  static float sigma_last = -10.0;
+
+ /* Internal function to get kernel pointers (for pyramid use) */
+ void _KLTGetGaussianKernels(ConvolutionKernel **gauss, ConvolutionKernel **gaussderiv)
+ {
+   *gauss = &gauss_kernel;
+   *gaussderiv = &gaussderiv_kernel;
+ }
  
  /*********************************************************************
   * _KLTToFloatImage
@@ -242,41 +249,37 @@
  * _convolveSeparate
  */
 
-/* GPU-accelerated separable convolution with nested data region support */
+/* GPU-accelerated separable convolution 
+ * IMPORTANT: Assumes data is already on GPU (called from parent data region)
+ * Use present() clauses to assert this - no data transfers here!
+ */
 static void _convolveSeparate(
  _KLT_FloatImage imgin,
  const ConvolutionKernel *horiz_kernel,
  const ConvolutionKernel *vert_kernel,
  _KLT_FloatImage imgout)
 {
-int ncols = imgin->ncols;
-int nrows = imgin->nrows;
-int npix  = ncols * nrows;
+  int ncols = imgin->ncols;
+  int nrows = imgin->nrows;
 
-/* Temporary image */
-_KLT_FloatImage tmpimg;
+  /* Temporary image for intermediate result */
+  _KLT_FloatImage tmpimg;
+  tmpimg = _KLTCreateFloatImage(ncols, nrows);
 
-/* Allocate temporary image (host-side pointer) */
-tmpimg = _KLTCreateFloatImage(ncols, nrows);
+  /* All data must already be on GPU from parent region
+   * We only create() the temporary image here
+   */
+  #pragma acc data present(imgin->data[0:ncols*nrows], \
+                            imgout->data[0:ncols*nrows], \
+                            horiz_kernel->data[0:MAX_KERNEL_WIDTH], \
+                            vert_kernel->data[0:MAX_KERNEL_WIDTH]) \
+                   create(tmpimg->data[0:ncols*nrows])
+  {
+    _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
+    _convolveImageVert(tmpimg, vert_kernel, imgout);
+  }
 
-/* GPU data region with present_or_* for nested region support
- * - present_or_copyin: Use present if data already on GPU, else copyin
- * - present_or_copyout: Use present if data already on GPU, else copyout
- * - create: Temporary image only exists on GPU (no transfer)
- * This allows function to work both standalone AND when called from parent data region
- */
-#pragma acc data present_or_copyin(imgin->data[0:npix], \
-                                     horiz_kernel->data[0:MAX_KERNEL_WIDTH], \
-                                     vert_kernel->data[0:MAX_KERNEL_WIDTH]) \
-                 create(tmpimg->data[0:npix]) \
-                 present_or_copyout(imgout->data[0:npix])
-{
-  _convolveImageHoriz(imgin, horiz_kernel, tmpimg);
-  _convolveImageVert(tmpimg, vert_kernel, imgout);
-}
-
-/* Free memory */
-_KLTFreeFloatImage(tmpimg);
+  _KLTFreeFloatImage(tmpimg);
 } 
  
  /*********************************************************************
@@ -297,7 +300,6 @@ void _KLTComputeGradients(
     _KLT_FloatImage gradx,
     _KLT_FloatImage grady)
 {
-
   /* Output images must be large enough to hold result */
   assert(gradx->ncols >= img->ncols);
   assert(gradx->nrows >= img->nrows);
@@ -312,13 +314,12 @@ void _KLTComputeGradients(
   int nrows = img->nrows;
   int npix = ncols * nrows;
 
-  /* Wrap BOTH convolution calls in single data region
-   * - Input image transferred once
-   * - Both gradients computed on GPU
-   * - Results transferred back once
-   * This eliminates redundant transfers between the two convolutions
+  /* Single data region for both gradient computations
+   * Transfer input once, compute both gradients on GPU, transfer results once
    */
-  #pragma acc data copyin(img->data[0:npix]) \
+  #pragma acc data copyin(img->data[0:npix], \
+                          gauss_kernel.data[0:MAX_KERNEL_WIDTH], \
+                          gaussderiv_kernel.data[0:MAX_KERNEL_WIDTH]) \
                    copyout(gradx->data[0:npix], grady->data[0:npix])
   {
     _convolveSeparate(img, &gaussderiv_kernel, &gauss_kernel, gradx);
@@ -343,16 +344,8 @@ void _KLTComputeSmoothedImage(
   if (fabs(sigma - sigma_last) > 0.05)
     _computeKernels(sigma, &gauss_kernel, &gaussderiv_kernel);
 
-  int ncols = img->ncols;
-  int nrows = img->nrows;
-  int npix = ncols * nrows;
-
-  /* Data region with present_or_* for nested region support
-   * Allows this function to work both standalone and when called from pyramid
+  /* NO data region here - assumes caller has set up data region
+   * This is called from pyramid which already has data on GPU
    */
-  #pragma acc data present_or_copyin(img->data[0:npix]) \
-                   present_or_copyout(smooth->data[0:npix])
-  {
-    _convolveSeparate(img, &gauss_kernel, &gauss_kernel, smooth);
-  }
+  _convolveSeparate(img, &gauss_kernel, &gauss_kernel, smooth);
 }
